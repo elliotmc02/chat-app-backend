@@ -37,6 +37,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       id: client.id,
       username,
     });
+
     this.server.emit('getConnectedUsers', this.getConnectedUsers());
   }
 
@@ -69,6 +70,31 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         userId: user.id,
         username: user.username,
         message,
+        timestamp: new Date().toISOString().split('T')[0],
+      });
+    }
+  }
+
+  @SubscribeMessage('joinRoom')
+  handleJoinRoom(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() roomId: string,
+  ) {
+    const user = this.users.get(client.id);
+    if (user) {
+      client.join(roomId);
+      const exists = this.rooms.has(roomId);
+      if (!exists) {
+        this.rooms.set(roomId, new Set());
+      }
+      this.rooms.get(roomId).add(client.id);
+      user.rooms.add(roomId);
+
+      this.server.to(roomId).emit('globalMessage', {
+        roomId,
+        userId: client.id,
+        username: user.username,
+        message: `${user.username}${exists ? ' joined' : ' created'} the room ${roomId}`,
         timestamp: new Date().toISOString().split('T')[0],
       });
     }
